@@ -33,81 +33,6 @@ var extractPrototypes = function() {
 	fileElementPrototype.parentNode.removeChild(fileElementPrototype);
 }
 
-var confirm_gist = function(confirmation_message) {
-	if (!Controller.isFeatureEnabled_("confirmGist")) {
-		gistie();
-		return;
-	}
-
-	// Set optional confirmation_message
-	confirmation_message = confirmation_message || "Yes. Paste this commit.";
-	var deleteMessage = Controller.getConfig_("github.token") ? " " : "You might not be able to delete it after posting.<br>";
-	var publicMessage = Controller.isFeatureEnabled_("publicGist") ? "<b>public</b>" : "private";
-	// Insert the verification links into div#notification_message
-	var notification_text = 'This will create a ' + publicMessage + ' paste of your commit to <a href="https://gist.github.com/">https://gist.github.com/</a><br>' +
-	deleteMessage +
-	'Are you sure you want to continue?<br/><br/>' +
-	'<a href="#" class="cancel">No. Cancel.</a> | ' +
-	'<a href="#" class="confirm">' + confirmation_message + '</a>';
-
-	notify(notification_text, 0);
-	var notification_message = $("notification_message");
-	notification_message.getElementsByClassName("cancel")[0].addEventListener("click", function(e) {
-		e.preventDefault();
-		hideNotification();
-	});
-	notification_message.getElementsByClassName("confirm")[0].addEventListener("click", function(e) {
-		e.preventDefault();
-		gistie();
-	});
-	// Hide img#spinner, since it?s visible by default
-	$("spinner").classList.add("hidden");
-}
-
-var gistie = function() {
-	notify("Uploading code to Gistie..", 0);
-
-	var parameters = {public:false, files:{}};
-	var filename = commit.object.subject.replace(/[^a-zA-Z0-9]/g, "-") + ".patch";
-	parameters.files[filename] = {content: commit.object.patch()};
-
-	var accessToken = Controller.getConfig_("github.token"); // obtain a personal access token from https://github.com/settings/applications
-	// TODO: Replace true with private preference
-	if (Controller.isFeatureEnabled_("publicGist"))
-		parameters.public = true;
-
-	var t = new XMLHttpRequest();
-	t.onreadystatechange = function() {
-		if (t.readyState == 4) {
-			var success = t.status >= 200 && t.status < 300;
-			var response = JSON.parse(t.responseText);
-			if (success && response.html_url) {
-				var a = document.createElement("a");
-				a.target = "_new";
-				a.href = response.html_url;
-				a.textContent = response.html_url;
-				notify("Code uploaded to " + a.outerHTML, 1);
-			} else {
-				notify("Pasting to Gistie failed :(.", -1);
-				Controller.log_(t.responseText);
-			}
-		}
-	}
-
-	t.open('POST', "https://api.github.com/gists");
-	if (accessToken)
-		t.setRequestHeader('Authorization', 'token '+accessToken);
-	t.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-	t.setRequestHeader('Accept', 'text/javascript, text/html, application/xml, text/xml, */*');
-	t.setRequestHeader('Content-type', 'application/x-www-form-urlencoded;charset=UTF-8');
-
-	try {
-		t.send(JSON.stringify(parameters));
-	} catch(e) {
-		notify("Pasting to Gistie failed: " + e.toString().escapeHTML(), -1);
-	}
-}
-
 var setGravatar = function(email, image) {
 	image.src=(createGravatarUrl(email, image));
 };
@@ -116,12 +41,12 @@ var createGravatarUrl = function(email, image) {
 	if(Controller && !Controller.isFeatureEnabled_("gravatar")) {
 		return "";
 	}
-	
+
 	var gravatarBaseUrl = "https://www.gravatar.com/avatar/";
 	var gravatarParameter = "?d=wavatar&s=60";
-	
+
 	var gravatarID = (email && hex_md5(email.toLowerCase().replace(/ /g, ""))) ||  "";
-	
+
 	return gravatarBaseUrl + gravatarID + gravatarParameter;
 };
 
@@ -238,7 +163,7 @@ var loadCommit = function(commitObject, currentRef) {
 		bindCommitSelectionLinks(newRow);
 	}
 
-	commit.notificationID = setTimeout(function() { 
+	commit.notificationID = setTimeout(function() {
 		if (!commit.fullyLoaded)
 			notify("Loading commit…", 0);
 		commit.notificationID = null;
@@ -345,7 +270,6 @@ var enableFeature = function(feature, element)
 
 var enableFeatures = function()
 {
-	enableFeature("gist", $("gist"))
 	enableFeature("gravatar", $("author_gravatar").parentNode)
 	enableFeature("gravatar", $("committer_gravatar").parentNode)
 }
@@ -368,7 +292,7 @@ var loadCommitDiff = function(jsonData)
 			var fileInfo = commit.filesInfo[i];
 			var fileElem = fileElementPrototype.cloneNode(true); // this is a <li>
 			fileElem.targetFileId = "file_index_"+i;
-			
+
 			var displayName, representedFile;
 			if (fileInfo.changeType === "renamed") {
 				displayName = formatRenameDiff(renameDiff(fileInfo.oldFilename, fileInfo.newFilename));
@@ -380,7 +304,7 @@ var loadCommitDiff = function(jsonData)
 			}
 			fileElem.title = fileInfo.changeType + ": " + displayName; // set tooltip
 			fileElem.setAttribute("representedFile", representedFile);
-			
+
 			if (i % 2)
 				fileElem.className += "even";
 			else
@@ -391,15 +315,15 @@ var loadCommitDiff = function(jsonData)
 				// Scroll to that file.
 				$(this.targetFileId).scrollIntoView(true);
 			}
-			
+
 			// Start with a modified icon, and update it later when the
 			// `diff --summary` info comes back.
 			var imgElement = fileElem.getElementsByClassName("changetype-icon")[0];
 			imgElement.src = "../../images/"+fileInfo.changeType+".svg";
-			
+
 			var filenameElement = fileElem.getElementsByClassName("filename")[0];
 			filenameElement.innerText = displayName;
-			
+
 			var diffstatElem = fileElem.getElementsByClassName("diffstat-info")[0];
 			var binaryElem = fileElem.getElementsByClassName("binary")[0]
 			if (fileInfo.binary) {
@@ -411,7 +335,7 @@ var loadCommitDiff = function(jsonData)
 			else {
 				// remove the binary element
 				binaryElem.parentNode.removeChild(binaryElem);
-				
+
 				// Show the num of lines added/removed
 				var addedWidth = 2 * fileInfo.numLinesAdded;
 				var removedWidth = 2 * fileInfo.numLinesRemoved;
@@ -425,7 +349,7 @@ var loadCommitDiff = function(jsonData)
 				}
 				if (addedWidth > 0 && addedWidth < minWidth) addedWidth = minWidth;
 				if (removedWidth > 0 && removedWidth < minWidth) removedWidth = minWidth;
-				
+
 				// show lines changed info
 				var numLinesAdded = fileInfo.numLinesAdded;
 				var numLinesRemoved = fileInfo.numLinesRemoved;
@@ -446,14 +370,14 @@ var loadCommitDiff = function(jsonData)
 				var diffstatDetails = diffstatElem.getElementsByClassName("diffstat-numbers")[0];
 				diffstatDetails.getElementsByClassName("added")[0].innerText = "+"+numLinesAdded;
 				diffstatDetails.getElementsByClassName("removed")[0].innerText = "-"+numLinesRemoved;
-				
+
 				// Size the bars
 				var addedBar = diffstatElem.getElementsByClassName("changes-bar")[0];
 				if (addedWidth >= minWidth)
 					addedBar.style.width = addedWidth;
 				else
 					addedBar.style.visibility = "hidden";
-			
+
 				var removedBar = diffstatElem.getElementsByClassName("changes-bar")[1];
 				if (removedWidth >= minWidth)
 					removedBar.style.width = removedWidth;
@@ -503,8 +427,4 @@ function collapseDiffstatDetails(obj) {
 
 document.addEventListener("DOMContentLoaded", function() {
 	extractPrototypes();
-	$("gist").addEventListener("click", function(e) {
-		e.preventDefault();
-		confirm_gist();
-	});
 });
